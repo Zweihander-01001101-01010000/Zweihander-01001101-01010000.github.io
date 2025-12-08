@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HawkEye - Rastreador de Dispositivos</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f1f5f9;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+        }
+        
+        .logo {
+            font-size: 2.5rem;
+            color: #3b82f6;
+            margin-bottom: 10px;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #e2e8f0;
+        }
+        
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+        }
+        
+        .status-bar {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .status-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #3b82f6;
+            margin-bottom: 5px;
+        }
+        
+        .status-label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-connected {
+            color: #10b981;
+        }
+        
+        .status-disconnected {
+            color: #ef4444;
+        }
+        
+        .device-list {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .device-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+        
+        .device-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(59, 130, 246, 0.5);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .device-info h3 {
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .device-id {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+            display: inline-block;
+        }
+        
+        .device-status {
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+            margin-left: 10px;
+        }
+        
+        .status-online {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+        
+        .status-offline {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            border: 2px dashed rgba(255, 255, 255, 0.1);
+        }
+        
+        .empty-state i {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            color: #475569;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.4rem;
+            margin-bottom: 10px;
+            color: #e2e8f0;
+        }
+        
+        .empty-state p {
+            font-size: 1rem;
+            max-width: 400px;
+            margin: 0 auto 25px;
+            line-height: 1.6;
+        }
+        
+        .main-actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .instructions h4 {
+            color: #e2e8f0;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+            line-height: 1.8;
+            color: #cbd5e1;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .instructions code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #fbbf24;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            color: #64748b;
+            font-size: 0.9rem;
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .api-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-top: 10px;
+        }
+        
+        .api-connected {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        
+        .api-disconnected {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        
+        @media (max-width: 600px) {
+            .device-card {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            
+            .device-info h3 {
+                justify-content: center;
+            }
+            
+            .actions {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .btn {
+                flex: 1;
+                justify-content: center;
+                min-width: 120px;
+            }
+            
+            .status-bar {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .status-item {
+                min-width: 100%;
+            }
+        }
+        
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loadingScreen">
+        <div class="spinner"></div>
+        <p>Cargando dispositivos...</p>
+    </div>
+    
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-map-marker-alt"></i>
+            </div>
+            <h1>HawkEye</h1>
+            <p class="subtitle">Rastreador de dispositivos en tiempo real</p>
+            
+            <div class="api-status" id="apiStatus">
+                <i class="fas fa-circle"></i>
+                <span>Conectando a API...</span>
+            </div>
+        </header>
+        
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-value" id="totalDevices">0</div>
+                <div class="status-label">Dispositivos</div>
+            </div>
+            <div class="status-item">
+                <div class="status-value status-connected" id="onlineDevices">0</div>
+                <div class="status-label">En Línea</div>
+            </div>
+            <div class="status-item">
+                <div class="status-value" id="lastUpdate">--:--</div>
+                <div class="status-label">Última Actualización</div>
+            </div>
+            <div class="status-item">
+                <div class="status-value" id="apiUrl">API</div>
+                <div class="status-label">Servidor</div>
+            </div>
+        </div>
+        
+        <main>
+            <div id="device-list" class="device-list">
+                <!-- Los dispositivos se cargarán aquí -->
+                <div class="empty-state" id="emptyState">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <h3>No hay dispositivos registrados</h3>
+                    <p>Agrega tu primer dispositivo para comenzar a rastrear en tiempo real</p>
+                    <button class="btn btn-primary" onclick="addDevice()">
+                        <i class="fas fa-plus"></i> Agregar Primer Dispositivo
+                    </button>
+                </div>
+            </div>
+            
+            <div class="main-actions">
+                <button class="btn btn-primary" onclick="addDevice()">
+                    <i class="fas fa-plus"></i> Agregar Dispositivo
+                </button>
+                <button class="btn btn-success" onclick="addAndroidDevice()">
+                    <i class="fas fa-mobile-alt"></i> Agregar Android
+                </button>
+                <button class="btn btn-secondary" onclick="refreshDevices()">
+                    <i class="fas fa-sync-alt"></i> Actualizar
+                </button>
+            </div>
+            
+            <div class="instructions">
+                <h4><i class="fas fa-info-circle"></i> Cómo conectar tu dispositivo Android</h4>
+                <ol>
+                    <li>Descarga la app <strong>HawkEye</strong> en tu teléfono Android</li>
+                    <li>Abre la app y anota tu <strong>ID de Dispositivo</strong></li>
+                    <li>En esta página, haz clic en <strong>"Agregar Android"</strong></li>
+                    <li>Ingresa el ID de tu dispositivo Android</li>
+                    <li>¡Listo! Tu ubicación aparecerá en el mapa en tiempo real</li>
+                </ol>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #94a3b8;">
+                    <i class="fas fa-link"></i> URL de tu API: <code id="currentApiUrl">https://tu-api.onrender.com</code>
+                </p>
+            </div>
+        </main>
+        
+        <footer>
+            <p>HawkEye v2.0 • Sistema de rastreo en tiempo real</p>
+            <p>Frontend: GitHub Pages | Backend: API Flask | App: Android Kotlin</p>
+            <p id="connectionInfo">Estado de conexión: Verificando...</p>
+        </footer>
+    </div>
+
+    <script>
+        // ==================== CONFIGURACIÓN ====================
+        // ⚠️ IMPORTANTE: Cambia esta URL por la de tu API real
+        const API_BASE = "https://hawkeye-api-nreo.onrender.com"; // Tu backend en Render/Heroku
+        // Alternativas:
+        // const API_BASE = "https://tu-api.herokuapp.com";
+        // const API_BASE = "http://localhost:5000"; // Solo desarrollo local
+        
+        const GITHUB_PAGES_URL = "https://zwihander-01001101-01010000.github.io";
+        
+        // Estado de la aplicación
+        let devices = [];
+        let apiStatus = 'checking';
+        let lastUpdateTime = null;
+        
+        // ==================== FUNCIONES PRINCIPALES ====================
+        
+        // Función para probar conexión con la API
+        async function checkApiConnection() {
+            try {
+                showLoading();
+                const response = await fetch(`${API_BASE}/`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-cache'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    apiStatus = 'connected';
+                    updateApiStatusDisplay();
+                    console.log("✅ API conectada:", data);
+                    return true;
+                } else {
+                    throw new Error(`API responded with ${response.status}`);
+                }
+            } catch (error) {
+                apiStatus = 'disconnected';
+                updateApiStatusDisplay();
+                console.error("❌ Error conectando a API:", error.message);
+                return false;
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        // Función para cargar dispositivos desde localStorage y API
+        async function loadDevices() {
+            // Primero cargar desde localStorage (modo offline)
+            const localDevices = JSON.parse(localStorage.getItem("devices") || "[]");
+            devices = localDevices;
+            
+            // Intentar cargar desde API si está conectada
+            if (apiStatus === 'connected') {
+                try {
+                    const response = await fetch(`${API_BASE}/api/devices`, {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    
+                    if (response.ok) {
+                        const apiDevices = await response.json();
+                        // Combinar dispositivos locales con los de la API
+                        const deviceMap = new Map();
+                        
+                        // Primero agregar dispositivos locales
+                        localDevices.forEach(device => {
+                            deviceMap.set(device.id, { ...device, source: 'local' });
+                        });
+                        
+                        // Luego agregar/actualizar con dispositivos de la API
+                        apiDevices.forEach(device => {
+                            deviceMap.set(device.id, { 
+                                ...device, 
+                                source: 'api',
+                                isOnline: true 
+                            });
+                        });
+                        
+                        devices = Array.from(deviceMap.values());
+                    }
+                } catch (error) {
+                    console.warn("⚠️ No se pudieron cargar dispositivos de la API:", error.message);
+                }
+            }
+            
+            renderDevices();
+            updateStats();
+            lastUpdateTime = new Date();
+            updateLastUpdateDisplay();
+        }
+        
+        // Función para renderizar la lista de dispositivos
+        function renderDevices() {
+            const container = document.getElementById("device-list");
+            const emptyState = document.getElementById("emptyState");
+            
+            if (devices.length === 0) {
+                emptyState.style.display = "block";
+                return;
+            }
+            
+            emptyState.style.display = "none";
+            container.innerHTML = "";
+            
+            devices.forEach((device, index) => {
+                const isOnline = device.isOnline || false;
+                const source = device.source || 'local';
+                const lastSeen = device.lastSeen || device.timestamp || null;
+                
+                const card = document.createElement("div");
+                card.className = "device-card";
+                card.innerHTML = `
+                    <div class="device-info">
+                        <h3>
+                            ${device.name}
+                            <span class="device-status ${isOnline ? 'status-online' : 'status-offline'}">
+                                ${isOnline ? '🟢 En línea' : '🔴 Sin conexión'}
+                            </span>
+                            ${source === 'api' ? '<i class="fas fa-cloud" title="Sincronizado con API"></i>' : 
+                              '<i class="fas fa-mobile-alt" title="Dispositivo local"></i>'}
+                        </h3>
+                        <div class="device-id">ID: ${device.id}</div>
+                        ${lastSeen ? `<div style="font-size: 0.75rem; color: #64748b; margin-top: 5px;">
+                            <i class="far fa-clock"></i> Última vez: ${formatTimeAgo(lastSeen)}
+                        </div>` : ''}
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-secondary" onclick="viewDevice('${device.id}')" title="Ver en mapa">
+                            <i class="fas fa-map"></i> Mapa
+                        </button>
+                        <button class="btn btn-secondary" onclick="copyDeviceId('${device.id}')" title="Copiar ID">
+                            <i class="fas fa-copy"></i> Copiar ID
+                        </button>
+                        <button class="btn btn-danger" onclick="removeDevice(${index})" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+        
+        // Función para agregar un dispositivo manual
+        function addDevice() {
+            const name = prompt("Nombre del dispositivo (ej: Mi Teléfono, Mi Auto):", "");
+            if (!name) return;
+            
+            const id = prompt("ID del dispositivo (deja vacío para generar automático):", "");
+            const deviceId = id || crypto.randomUUID();
+            
+            const newDevice = {
+                id: deviceId,
+                name: name,
+                source: 'local',
+                isOnline: false,
+                timestamp: new Date().toISOString()
+            };
+            
+            devices.push(newDevice);
+            localStorage.setItem("devices", JSON.stringify(devices));
+            
+            // Intentar registrar en la API
+            if (apiStatus === 'connected') {
+                registerDeviceInApi(deviceId, name);
+            }
+            
+            renderDevices();
+            updateStats();
+            
+            alert(`✅ Dispositivo agregado:\nNombre: ${name}\nID: ${deviceId}\n\nGuarda este ID para configurar tu app Android.`);
+        }
+        
+        // Función especial para agregar dispositivo Android
+        function addAndroidDevice() {
+            const name = prompt("Nombre del dispositivo Android:", `Android ${navigator.userAgent.match(/Android[\w\s\.]+/)?.[0] || 'Device'}`);
+            if (!name) return;
+            
+            const id = prompt("ID del dispositivo Android (obtenlo desde la app):", "");
+            if (!id) {
+                alert("❌ Necesitas ingresar el ID del dispositivo Android.");
+                return;
+            }
+            
+            const newDevice = {
+                id: id,
+                name: name,
+                source: 'android',
+                isOnline: false,
+                timestamp: new Date().toISOString()
+            };
+            
+            devices.push(newDevice);
+            localStorage.setItem("devices", JSON.stringify(devices));
+            
+            // Intentar registrar en la API
+            if (apiStatus === 'connected') {
+                registerDeviceInApi(id, name);
+            }
+            
+            renderDevices();
+            updateStats();
+            
+            const mapUrl = `${GITHUB_PAGES_URL}/map.html?id=${id}&name=${encodeURIComponent(name)}`;
+            alert(`✅ Dispositivo Android agregado!\n\n🔗 URL para rastrear:\n${mapUrl}\n\nPuedes abrir este enlace para ver la ubicación en tiempo real.`);
+        }
+        
+        // Función para registrar dispositivo en la API
+        async function registerDeviceInApi(deviceId, deviceName) {
+            try {
+                const response = await fetch(`${API_BASE}/api/device/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        id: deviceId,
+                        name: deviceName
+                    })
+                });
+                
+                if (response.ok) {
+                    console.log(`✅ Dispositivo registrado en API: ${deviceId}`);
+                }
+            } catch (error) {
+                console.warn(`⚠️ No se pudo registrar en API: ${error.message}`);
+            }
+        }
+        
+        // Función para ver dispositivo en el mapa
+        function viewDevice(id) {
+            const device = devices.find(d => d.id === id);
+            if (device) {
+                window.location.href = `map.html?id=${id}&name=${encodeURIComponent(device.name)}`;
+            }
+        }
+        
+        // Función para copiar ID al portapapeles
+        function copyDeviceId(id) {
+            navigator.clipboard.writeText(id).then(() => {
+                alert(`✅ ID copiado al portapapeles:\n${id}`);
+            }).catch(err => {
+                console.error('Error al copiar:', err);
+            });
+        }
+        
+        // Función para eliminar dispositivo
+        function removeDevice(index) {
+            if (confirm("¿Eliminar este dispositivo?\n\nEsta acción no se puede deshacer.")) {
+                devices.splice(index, 1);
+                localStorage.setItem("devices", JSON.stringify(devices));
+                renderDevices();
+                updateStats();
+            }
+        }
+        
+        // Función para actualizar dispositivos
+        function refreshDevices() {
+            loadDevices();
+            checkApiConnection();
+        }
+        
+        // Función para simular dispositivo (modo demo)
+        function simulateDevice() {
+            const name = "Dispositivo de Prueba";
+            const id = "demo-" + Date.now();
+            
+            devices.push({ 
+                id, 
+                name, 
+                source: 'demo',
+                isOnline: true,
+                timestamp: new Date().toISOString()
+            });
+            
+            localStorage.setItem("devices", JSON.stringify(devices));
+            renderDevices();
+            updateStats();
+        }
+        
+        // ==================== FUNCIONES UTILITARIAS ====================
+        
+        function updateStats() {
+            const total = devices.length;
+            const online = devices.filter(d => d.isOnline).length;
+            
+            document.getElementById('totalDevices').textContent = total;
+            document.getElementById('onlineDevices').textContent = online;
+            document.getElementById('onlineDevices').className = 
+                online > 0 ? 'status-value status-connected' : 'status-value status-disconnected';
+            
+            // Actualizar URL de API
+            document.getElementById('apiUrl').textContent = 
+                API_BASE.includes('localhost') ? 'Local' : 
+                API_BASE.includes('render.com') ? 'Render' :
+                API_BASE.includes('herokuapp.com') ? 'Heroku' : 'API';
+            
+            document.getElementById('currentApiUrl').textContent = API_BASE;
+        }
+        
+        function updateApiStatusDisplay() {
+            const apiStatusEl = document.getElementById('apiStatus');
+            const connectionInfo = document.getElementById('connectionInfo');
+            
+            if (apiStatus === 'connected') {
+                apiStatusEl.innerHTML = '<i class="fas fa-circle"></i> <span>API Conectada</span>';
+                apiStatusEl.className = 'api-status api-connected';
+                connectionInfo.innerHTML = `<i class="fas fa-wifi"></i> Conectado a: ${API_BASE.replace('https://', '')}`;
+            } else if (apiStatus === 'disconnected') {
+                apiStatusEl.innerHTML = '<i class="fas fa-circle"></i> <span>API Desconectada</span>';
+                apiStatusEl.className = 'api-status api-disconnected';
+                connectionInfo.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Modo offline - Los datos se guardan localmente`;
+            } else {
+                apiStatusEl.innerHTML = '<i class="fas fa-circle"></i> <span>Conectando...</span>';
+                apiStatusEl.className = 'api-status api-disconnected';
+            }
+        }
+        
+        function updateLastUpdateDisplay() {
+            if (lastUpdateTime) {
+                const timeStr = lastUpdateTime.toLocaleTimeString('es-ES', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                document.getElementById('lastUpdate').textContent = timeStr;
+            }
+        }
+        
+        function formatTimeAgo(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            
+            if (diffMins < 1) return 'Ahora mismo';
+            if (diffMins < 60) return `Hace ${diffMins} min`;
+            
+            const diffHours = Math.floor(diffMins / 60);
+            if (diffHours < 24) return `Hace ${diffHours} h`;
+            
+            const diffDays = Math.floor(diffHours / 24);
+            if (diffDays === 1) return 'Ayer';
+            if (diffDays < 7) return `Hace ${diffDays} días`;
+            
+            return date.toLocaleDateString('es-ES', {
+                day: 'numeric',
+                month: 'short'
+            });
+        }
+        
+        function showLoading() {
+            document.getElementById('loadingScreen').style.display = 'flex';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loadingScreen').style.display = 'none';
+        }
+        
+        // ==================== INICIALIZACIÓN ====================
+        
+        async function initializeApp() {
+            console.log("🚀 Inicializando HawkEye...");
+            console.log("🌐 URL API:", API_BASE);
+            console.log("🏠 GitHub Pages:", GITHUB_PAGES_URL);
+            
+            // Mostrar loading
+            showLoading();
+            
+            // Probar conexión con API
+            const apiConnected = await checkApiConnection();
+            
+            if (!apiConnected) {
+                console.warn("⚠️ Ejecutando en modo offline");
+                alert("⚠️ No se pudo conectar a la API. Trabajando en modo offline.\n\nLos datos se guardarán localmente en tu navegador.");
+            }
+            
+            // Cargar dispositivos
+            await loadDevices();
+            
+            // Ocultar loading
+            hideLoading();
+            
+            // Actualizar cada 30 segundos
+            setInterval(() => {
+                if (apiStatus === 'connected') {
+                    loadDevices();
+                }
+            }, 30000);
+        }
+        
+        // Registrar service worker para PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(registration => {
+                    console.log('✅ Service Worker registrado:', registration);
+                }).catch(error => {
+                    console.log('❌ Error registrando Service Worker:', error);
+                });
+            });
+        }
+        
+        // Inicializar la aplicación cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', initializeApp);
+        
+        // Manejar teclas de acceso rápido
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'r') {
+                e.preventDefault();
+                refreshDevices();
+            }
+            if (e.key === 'F5') {
+                e.preventDefault();
+                refreshDevices();
+            }
+        });
+        
+        // Mostrar información de versión
+        console.log("%c🦅 HawkEye v2.0", "color: #3b82f6; font-size: 16px; font-weight: bold;");
+        console.log("%cSistema de rastreo en tiempo real", "color: #94a3b8;");
+        console.log("Frontend: GitHub Pages | Backend: API Flask | App: Android Kotlin");
+    </script>
+</body>
+</html>

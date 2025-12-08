@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HawkEye - Mapa en Tiempo Real</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* RESET Y BASE */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        html, body {
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        /* PANTALLA COMPLETA - SIN MÁRGENES */
+        body {
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f1f5f9;
+        }
+        
+        /* HEADER MINIMALISTA */
+        .header {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .header h2 i {
+            color: #3b82f6;
+        }
+        
+        /* CONTROLES DEL HEADER */
+        .header-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .btn-control {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        .btn-control:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+        }
+        
+        .btn-control:active {
+            transform: translateY(0);
+        }
+        
+        .btn-control.primary {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border: none;
+            font-weight: 500;
+        }
+        
+        .btn-control.success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            font-weight: 500;
+        }
+        
+        .btn-control.warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border: none;
+            font-weight: 500;
+        }
+        
+        .btn-control.danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border: none;
+            font-weight: 500;
+        }
+        
+        /* MAPA - 100% PANTALLA */
+        #map {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        /* PANEL FLOTANTE DE INFORMACIÓN */
+        .info-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 1000;
+            max-width: 320px;
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .info-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .title-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .connection-status {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+        
+        .status-online {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+        
+        .status-offline {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        
+        .info-content {
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .info-label {
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .info-value {
+            color: #e2e8f0;
+            font-weight: 500;
+            text-align: right;
+        }
+        
+        .coordinates {
+            font-family: monospace;
+            font-size: 0.85rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        /* BOTONES FLOTANTES */
+        .floating-buttons {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+        
+        .btn-floating {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+            transition: all 0.2s ease;
+        }
+        
+        .btn-floating:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.5);
+        }
+        
+        .btn-floating:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-floating.secondary {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        
+        /* ESTADÍSTICAS EN HEADER */
+        .stats {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 70px;
+        }
+        
+        .stat-value {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        
+        .stat-online {
+            color: #10b981;
+        }
+        
+        .stat-offline {
+            color: #ef4444;
+        }
+        
+        .stat-update {
+            color: #f59e0b;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* RESPONSIVE PARA MÓVILES */
+        @media (max-width: 768px) {
+            .header {
+                padding: 10px 15px;
+            }
+            
+            .header h2 {
+                font-size: 1rem;
+            }
+            
+            .btn-control span {
+                display: none;
+            }
+            
+            .btn-control {
+                padding: 8px;
+            }
+            
+            .info-panel {
+                max-width: 250px;
+                left: 10px;
+                bottom: 10px;
+                padding: 12px;
+            }
+            
+            .floating-buttons {
+                bottom: 15px;
+                right: 15px;
+            }
+            
+            .btn-floating {
+                width: 45px;
+                height: 45px;
+                font-size: 1.1rem;
+            }
+            
+            .stats {
+                gap: 10px;
+            }
+            
+            .stat-item {
+                min-width: 60px;
+            }
+            
+            .stat-value {
+                font-size: 1rem;
+            }
+        }
+        
+        /* OCULTAR ELEMENTOS EN PANTALLAS MUY PEQUEÑAS */
+        @media (max-width: 480px) {
+            .info-panel {
+                max-width: 200px;
+                font-size: 0.85rem;
+            }
+            
+            .header-controls .btn-control:not(.primary) {
+                display: none;
+            }
+            
+            .stats {
+                display: none;
+            }
+        }
+        
+        /* ESTILOS PARA POPUPS DE LEAFLET */
+        .leaflet-popup-content-wrapper {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            color: #f1f5f9;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .leaflet-popup-tip {
+            background: rgba(15, 23, 42, 0.95);
+        }
+        
+        .leaflet-control-attribution {
+            background: rgba(0, 0, 0, 0.5) !important;
+            color: #94a3b8 !important;
+            font-size: 0.75rem !important;
+        }
+        
+        /* ANIMACIÓN DE CARGA */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* RUTA DE SEGUIMIENTO */
+        .tracking-path {
+            stroke: #3b82f6;
+            stroke-width: 3;
+            stroke-opacity: 0.7;
+            fill: none;
+        }
+        
+        /* NOTIFICACIÓN FLOTANTE */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            padding: 12px 16px;
+            border-left: 4px solid #3b82f6;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            max-width: 300px;
+            animation: slideInRight 0.3s ease;
+            display: none;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .notification-success {
+            border-left-color: #10b981;
+        }
+        
+        .notification-warning {
+            border-left-color: #f59e0b;
+        }
+        
+        .notification-error {
+            border-left-color: #ef4444;
+        }
+        
+        .notification-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .notification-icon {
+            font-size: 1.2rem;
+        }
+        
+        .notification-text {
+            flex: 1;
+        }
+        
+        .notification-close {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0 5px;
+        }
+        
+        /* MARCADOR PERSONALIZADO */
+        .pulse-marker {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Pantalla de carga inicial -->
+    <div class="loading" id="loadingScreen">
+        <div class="spinner"></div>
+        <p id="loadingText">Cargando mapa...</p>
+    </div>
+
+    <!-- Notificación flotante -->
+    <div class="notification" id="notification">
+        <div class="notification-content">
+            <div class="notification-icon" id="notificationIcon">
+                <i class="fas fa-info-circle"></i>
+            </div>
+            <div class="notification-text" id="notificationText">
+                Mensaje de notificación
+            </div>
+            <button class="notification-close" onclick="hideNotification()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Header fijo -->
+    <div class="header">
+        <div class="header-left">
+            <h2><i class="fas fa-map-marker-alt"></i> HawkEye - Mapa en Tiempo Real</h2>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value stat-online" id="updateStatus">🟢</div>
+                <div class="stat-label">Estado</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value stat-update" id="updateTime">--:--</div>
+                <div class="stat-label">Actualización</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="accuracyValue">-- m</div>
+                <div class="stat-label">Precisión</div>
+            </div>
+        </div>
+        
+        <div class="header-controls">
+            <button class="btn-control warning" id="btnBack">
+                <i class="fas fa-arrow-left"></i>
+                <span>Volver</span>
+            </button>
+            <button class="btn-control" id="btnLocate">
+                <i class="fas fa-location-arrow"></i>
+                <span>Mi ubicación</span>
+            </button>
+            <button class="btn-control primary" id="btnRefresh">
+                <i class="fas fa-sync-alt"></i>
+                <span>Actualizar</span>
+            </button>
+            <button class="btn-control success" id="btnHistory">
+                <i class="fas fa-history"></i>
+                <span>Historial</span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Mapa (ocupa todo el espacio restante) -->
+    <div id="map"></div>
+    
+    <!-- Panel de información flotante -->
+    <div class="info-panel">
+        <div class="info-title">
+            <div class="title-left">
+                <i class="fas fa-info-circle"></i> 
+                <span>Información del dispositivo</span>
+            </div>
+            <div class="connection-status status-online" id="connectionStatus">
+                <i class="fas fa-circle"></i> En línea
+            </div>
+        </div>
+        <div class="info-content">
+            <div class="info-item">
+                <span class="info-label">
+                    <i class="fas fa-mobile-alt"></i> Nombre:
+                </span>
+                <span class="info-value" id="deviceName">Desconocido</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">
+                    <i class="fas fa-fingerprint"></i> ID:
+                </span>
+                <span class="info-value" id="deviceId" style="font-size: 0.8rem;">Cargando...</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">
+                    <i class="fas fa-globe-americas"></i> Latitud:
+                </span>
+                <span class="info-value">
+                    <span class="coordinates" id="deviceLat">0.000000</span>
+                </span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">
+                    <i class="fas fa-globe-americas"></i> Longitud:
+                </span>
+                <span class="info-value">
+                    <span class="coordinates" id="deviceLon">0.000000</span>
+                </span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">
+                    <i class="fas fa-clock"></i> Última conexión:
+                </span>
+                <span class="info-value" id="lastSeen">Hace --</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">
+                    <i class="fas fa-satellite"></i> Precisión:
+                </span>
+                <span class="info-value" id="deviceAccuracy">Desconocida</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">
+                    <i class="fas fa-server"></i> API:
+                </span>
+                <span class="info-value" id="apiStatus" style="font-size: 0.8rem;">
+                    <i class="fas fa-spinner fa-spin"></i> Conectando...
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Botones flotantes -->
+    <div class="floating-buttons">
+        <button class="btn-floating" id="btnZoomIn" title="Acercar">
+            <i class="fas fa-plus"></i>
+        </button>
+        <button class="btn-floating" id="btnZoomOut" title="Alejar">
+            <i class="fas fa-minus"></i>
+        </button>
+        <button class="btn-floating secondary" id="btnFullscreen" title="Pantalla completa">
+            <i class="fas fa-expand"></i>
+        </button>
+        <button class="btn-floating" id="btnCenter" title="Centrar en dispositivo" style="background: linear-gradient(135deg, #10b981, #059669);">
+            <i class="fas fa-crosshairs"></i>
+        </button>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    
+    <script>
+        // ==================== CONFIGURACIÓN ====================
+        // ⚠️ IMPORTANTE: Cambia esta URL por la de tu API real
+        const API_BASE = "https://hawkeye-api-nreo.onrender.com"; // Tu backend en Render/Heroku
+        
+        // Estado de la aplicación
+        let map = null;
+        let marker = null;
+        let trackingPath = null;
+        let pathCoordinates = [];
+        let isConnected = false;
+        let lastUpdateTime = null;
+        let updateInterval = null;
+        let historyMode = false;
+        
+        // Obtener parámetros de la URL
+        const params = new URLSearchParams(window.location.search);
+        const deviceId = params.get("id") || "default";
+        const deviceName = decodeURIComponent(params.get("name") || "Dispositivo");
+        
+        // ==================== INICIALIZACIÓN ====================
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Inicializando mapa de HawkEye...');
+            console.log('📱 Dispositivo:', deviceName, 'ID:', deviceId);
+            console.log('🌐 API Base:', API_BASE);
+            
+            // Actualizar información en el panel
+            document.getElementById('deviceId').textContent = deviceId;
+            document.getElementById('deviceName').textContent = deviceName;
+            
+            // Inicializar mapa
+            initMap();
+            
+            // Probar conexión con la API
+            await checkApiConnection();
+            
+            // Cargar ubicación inicial
+            await fetchAndUpdateLocation();
+            
+            // Ocultar pantalla de carga
+            setTimeout(() => {
+                document.getElementById('loadingScreen').style.display = 'none';
+            }, 800);
+            
+            // Configurar actualización automática
+            startAutoRefresh();
+            
+            // Configurar eventos
+            setupEventListeners();
+            
+            // Mostrar notificación de bienvenida
+            showNotification('✅ Mapa cargado correctamente', 'Bienvenido al sistema de rastreo en tiempo real de HawkEye', 'success');
+        });
+        
+        // ==================== FUNCIONES DEL MAPA ====================
+        
+        function initMap() {
+            // Inicializar mapa centrado en Costa Rica por defecto
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: true,
+                preferCanvas: true // Mejor rendimiento
+            }).setView([9.93, -84.08], 13);
+            
+            // Capa de mapa (OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            }).addTo(map);
+            
+            // Marcador inicial con efecto de pulso
+            marker = L.marker([9.93, -84.08], {
+                icon: L.divIcon({
+                    className: 'pulse-marker',
+                    html: `
+                        <div style="
+                            background: #3b82f6;
+                            width: 24px;
+                            height: 24px;
+                            border-radius: 50%;
+                            border: 4px solid white;
+                            box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            color: white;
+                            font-size: 12px;
+                        ">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                    `,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                })
+            }).addTo(map);
+            
+            // Popup inicial
+            updateMarkerPopup('Esperando datos del dispositivo...');
+            
+            // Inicializar ruta de seguimiento
+            trackingPath = L.polyline([], {
+                color: '#3b82f6',
+                weight: 3,
+                opacity: 0.7,
+                smoothFactor: 1,
+                className: 'tracking-path'
+            }).addTo(map);
+        }
+        
+        function updateMarkerPopup(message = null) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('es-ES', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            const dateStr = now.toLocaleDateString('es-ES');
+            
+            const popupContent = `
+                <div style="font-family: 'Segoe UI', sans-serif; min-width: 200px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <div style="background: #3b82f6; width: 12px; height: 12px; border-radius: 50%;"></div>
+                        <strong style="color: #3b82f6;">${deviceName}</strong>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 10px;">
+                        <div>🆔 ${deviceId.substring(0, 8)}...</div>
+                        <div>🕐 ${dateStr} ${timeStr}</div>
+                    </div>
+                    ${message ? `<div style="background: rgba(59, 130, 246, 0.1); padding: 8px; border-radius: 4px; font-size: 0.85rem; color: #cbd5e1;">
+                        <i class="fas fa-info-circle"></i> ${message}
+                    </div>` : ''}
+                </div>
+            `;
+            
+            marker.bindPopup(popupContent);
+        }
+        
+        function addToPath(lat, lng) {
+            // Agregar coordenada al historial de ruta
+            pathCoordinates.push([lat, lng]);
+            
+            // Mantener solo las últimas 100 coordenadas para rendimiento
+            if (pathCoordinates.length > 100) {
+                pathCoordinates.shift();
+            }
+            
+            // Actualizar la ruta en el mapa
+            trackingPath.setLatLngs(pathCoordinates);
+            
+            // Si estamos en modo historial, ajustar el mapa para ver toda la ruta
+            if (historyMode && pathCoordinates.length > 1) {
+                map.fitBounds(trackingPath.getBounds());
+            }
+        }
+        
+        // ==================== FUNCIONES DE API ====================
+        
+        async function checkApiConnection() {
+            try {
+                document.getElementById('loadingText').textContent = 'Conectando con la API...';
+                
+                const response = await fetch(`${API_BASE}/`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-cache',
+                    timeout: 10000
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    isConnected = true;
+                    updateConnectionStatus(true);
+                    console.log('✅ API conectada:', data);
+                    return true;
+                } else {
+                    throw new Error(`API responded with ${response.status}`);
+                }
+            } catch (error) {
+                isConnected = false;
+                updateConnectionStatus(false);
+                console.error('❌ Error conectando a API:', error.message);
+                showNotification('⚠️ Modo offline', 'No se pudo conectar a la API. Los datos pueden no estar actualizados.', 'warning');
+                return false;
+            }
+        }
+        
+        async function fetchLocation() {
+            try {
+                const response = await fetch(`${API_BASE}/api/location/${deviceId}`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-cache'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API responded with ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Si la API devuelve error
+                if (data.error) {
+                    console.warn("⚠️ Dispositivo sin ubicación:", data.error);
+                    return null;
+                }
+                
+                console.log('📍 Ubicación obtenida:', data.lat, data.lon);
+                return {
+                    lat: parseFloat(data.lat),
+                    lon: parseFloat(data.lon),
+                    accuracy: data.accuracy || null,
+                    timestamp: data.timestamp || new Date().toISOString()
+                };
+                
+            } catch (error) {
+                console.error('❌ Error obteniendo ubicación:', error.message);
+                return null;
+            }
+        }
+        
+        async function fetchLocationHistory() {
+            try {
+                const response = await fetch(`${API_BASE}/api/history/${deviceId}`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.locations || [];
+                }
+                return [];
+            } catch (error) {
+                console.error('❌ Error obteniendo historial:', error);
+                return [];
+            }
+        }
+        
+        // ==================== ACTUALIZACIÓN DE INTERFAZ ====================
+        
+        async function fetchAndUpdateLocation() {
+            try {
+                // Mostrar estado de carga
+                document.getElementById('updateStatus').textContent = '⏳';
+                document.getElementById('updateStatus').className = 'stat-value stat-update';
+                
+                const location = await fetchLocation();
+                
+                if (location) {
+                    // Actualizar marcador
+                    marker.setLatLng([location.lat, location.lon]);
+                    
+                    // Agregar a la ruta de seguimiento
+                    addToPath(location.lat, location.lon);
+                    
+                    // Actualizar información del panel
+                    updateInfoPanel(location);
+                    
+                    // Actualizar estadísticas
+                    updateStats(location);
+                    
+                    // Actualizar popup
+                    updateMarkerPopup();
+                    
+                    // Mostrar notificación si hay movimiento significativo
+                    if (pathCoordinates.length > 1) {
+                        const lastPoint = pathCoordinates[pathCoordinates.length - 2];
+                        const distance = calculateDistance(lastPoint[0], lastPoint[1], location.lat, location.lon);
+                        
+                        if (distance > 100) { // Más de 100 metros
+                            showNotification('📍 Ubicación actualizada', `El dispositivo se movió ${Math.round(distance)} metros`, 'success');
+                        }
+                    }
+                    
+                    // Estado exitoso
+                    document.getElementById('updateStatus').textContent = '🟢';
+                    document.getElementById('updateStatus').className = 'stat-value stat-online';
+                    
+                    lastUpdateTime = new Date();
+                    
+                } else {
+                    // Sin datos del dispositivo
+                    document.getElementById('updateStatus').textContent = '🔴';
+                    document.getElementById('updateStatus').className = 'stat-value stat-offline';
+                    
+                    updateMarkerPopup('El dispositivo no ha reportado su ubicación aún');
+                    showNotification('⚠️ Sin datos', 'El dispositivo no ha enviado su ubicación recientemente', 'warning');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error actualizando ubicación:', error);
+                
+                document.getElementById('updateStatus').textContent = '🔴';
+                document.getElementById('updateStatus').className = 'stat-value stat-offline';
+                
+                showNotification('❌ Error de conexión', 'No se pudo obtener la ubicación del dispositivo', 'error');
+            }
+        }
+        
+        function updateInfoPanel(location) {
+            // Coordenadas
+            document.getElementById('deviceLat').textContent = location.lat.toFixed(6);
+            document.getElementById('deviceLon').textContent = location.lon.toFixed(6);
+            
+            // Precisión
+            if (location.accuracy) {
+                document.getElementById('deviceAccuracy').textContent = `${Math.round(location.accuracy)} m`;
+                document.getElementById('accuracyValue').textContent = `${Math.round(location.accuracy)} m`;
+            }
+            
+            // Tiempo desde última actualización
+            const updatedDate = new Date(location.timestamp);
+            const timeAgo = getTimeAgo(updatedDate);
+            document.getElementById('lastSeen').textContent = timeAgo;
+            
+            // Fecha y hora formateada
+            const timeStr = updatedDate.toLocaleTimeString('es-ES', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            const dateStr = updatedDate.toLocaleDateString('es-ES');
+            
+            document.getElementById('updateTime').textContent = timeStr;
+        }
+        
+        function updateStats(location) {
+            // Actualizar hora de última actualización
+            const now = new Date();
+            const updateTime = now.toLocaleTimeString('es-ES', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            document.getElementById('updateTime').textContent = updateTime;
+        }
+        
+        function updateConnectionStatus(connected) {
+            const statusElement = document.getElementById('connectionStatus');
+            const apiStatusElement = document.getElementById('apiStatus');
+            
+            if (connected) {
+                statusElement.innerHTML = '<i class="fas fa-circle"></i> En línea';
+                statusElement.className = 'connection-status status-online';
+                
+                apiStatusElement.innerHTML = '<i class="fas fa-check-circle"></i> Conectado';
+                apiStatusElement.style.color = '#10b981';
+            } else {
+                statusElement.innerHTML = '<i class="fas fa-circle"></i> Offline';
+                statusElement.className = 'connection-status status-offline';
+                
+                apiStatusElement.innerHTML = '<i class="fas fa-times-circle"></i> Sin conexión';
+                apiStatusElement.style.color = '#ef4444';
+            }
+        }
+        
+        // ==================== FUNCIONES UTILITARIAS ====================
+        
+        function getTimeAgo(date) {
+            const now = new Date();
+            const diffMs = now - date;
+            const diffSecs = Math.floor(diffMs / 1000);
+            const diffMins = Math.floor(diffSecs / 60);
+            const diffHours = Math.floor(diffMins / 60);
+            const diffDays = Math.floor(diffHours / 24);
+            
+            if (diffSecs < 60) return 'Ahora mismo';
+            if (diffMins < 60) return `Hace ${diffMins} min`;
+            if (diffHours < 24) return `Hace ${diffHours} h`;
+            if (diffDays === 1) return 'Ayer';
+            if (diffDays < 7) return `Hace ${diffDays} días`;
+            if (diffDays < 30) return `Hace ${Math.floor(diffDays/7)} semanas`;
+            
+            return date.toLocaleDateString('es-ES', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+        
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Radio de la Tierra en metros
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+            
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            
+            return R * c;
+        }
+        
+        function showNotification(title, message, type = 'info') {
+            const notification = document.getElementById('notification');
+            const notificationIcon = document.getElementById('notificationIcon');
+            const notificationText = document.getElementById('notificationText');
+            
+            // Configurar según el tipo
+            let icon = 'info-circle';
+            let className = '';
+            
+            switch(type) {
+                case 'success':
+                    icon = 'check-circle';
+                    className = 'notification-success';
+                    break;
+                case 'warning':
+                    icon = 'exclamation-triangle';
+                    className = 'notification-warning';
+                    break;
+                case 'error':
+                    icon = 'times-circle';
+                    className = 'notification-error';
+                    break;
+                default:
+                    icon = 'info-circle';
+            }
+            
+            // Actualizar contenido
+            notificationIcon.innerHTML = `<i class="fas fa-${icon}"></i>`;
+            notificationText.innerHTML = `<strong>${title}</strong><br><small>${message}</small>`;
+            notification.className = `notification ${className}`;
+            
+            // Mostrar
+            notification.style.display = 'block';
+            
+            // Ocultar automáticamente después de 5 segundos
+            setTimeout(() => {
+                hideNotification();
+            }, 5000);
+        }
+        
+        function hideNotification() {
+            document.getElementById('notification').style.display = 'none';
+        }
+        
+        function startAutoRefresh() {
+            // Detener intervalo anterior si existe
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+            
+            // Configurar nuevo intervalo (cada 10 segundos)
+            updateInterval = setInterval(() => {
+                fetchAndUpdateLocation();
+            }, 10000);
+            
+            console.log('🔄 Actualización automática configurada cada 10 segundos');
+        }
+        
+        function stopAutoRefresh() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+                console.log('🛑 Actualización automática detenida');
+            }
+        }
+        
+        async function showHistory() {
+            try {
+                showNotification('📊 Cargando historial...', 'Obteniendo ubicaciones anteriores del dispositivo', 'info');
+                
+                const history = await fetchLocationHistory();
+                
+                if (history.length > 0) {
+                    // Limpiar ruta actual
+                    pathCoordinates = [];
+                    
+                    // Agregar todas las ubicaciones del historial
+                    history.forEach(loc => {
+                        pathCoordinates.push([loc.lat, loc.lon]);
+                    });
+                    
+                    // Actualizar ruta en el mapa
+                    trackingPath.setLatLngs(pathCoordinates);
+                    
+                    // Centrar el mapa en toda la ruta
+                    if (pathCoordinates.length > 0) {
+                        map.fitBounds(trackingPath.getBounds());
+                        
+                        // Mover marcador a la última ubicación
+                        const lastLoc = history[0];
+                        marker.setLatLng([lastLoc.lat, lastLoc.lon]);
+                        
+                        historyMode = true;
+                        
+                        showNotification('📊 Historial cargado', `Se cargaron ${history.length} ubicaciones históricas`, 'success');
+                    }
+                } else {
+                    showNotification('📊 Sin historial', 'No hay ubicaciones históricas disponibles', 'warning');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error mostrando historial:', error);
+                showNotification('❌ Error', 'No se pudo cargar el historial', 'error');
+            }
+        }
+        
+        function clearHistory() {
+            pathCoordinates = [];
+            trackingPath.setLatLngs([]);
+            historyMode = false;
+            
+            // Volver a centrar en la ubicación actual del marcador
+            const markerLatLng = marker.getLatLng();
+            map.setView(markerLatLng, 15);
+            
+            showNotification('🗑️ Historial limpiado', 'Se eliminó el rastro de seguimiento', 'info');
+        }
+        
+        // ==================== EVENT LISTENERS ====================
+        
+        function setupEventListeners() {
+            // Control de zoom personalizado
+            document.getElementById('btnZoomIn').addEventListener('click', function() {
+                map.zoomIn();
+            });
+            
+            document.getElementById('btnZoomOut').addEventListener('click', function() {
+                map.zoomOut();
+            });
+            
+            // Botón de centrar en dispositivo
+            document.getElementById('btnCenter').addEventListener('click', function() {
+                const markerLatLng = marker.getLatLng();
+                map.setView(markerLatLng, 15);
+                showNotification('🎯 Mapa centrado', 'Centrado en la ubicación del dispositivo', 'info');
+            });
+            
+            // Botón de ubicación del usuario
+            document.getElementById('btnLocate').addEventListener('click', function() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(function(position) {
+                        map.setView([position.coords.latitude, position.coords.longitude], 15);
+                        showNotification('📍 Tu ubicación', 'Mapa centrado en tu posición actual', 'success');
+                    }, function(error) {
+                        showNotification('❌ Error de geolocalización', 'No se pudo obtener tu ubicación', 'error');
+                    });
+                } else {
+                    showNotification('❌ Geolocalización no soportada', 'Tu navegador no soporta geolocalización', 'error');
+                }
+            });
+            
+            // Botón de pantalla completa
+            document.getElementById('btnFullscreen').addEventListener('click', function() {
+                const elem = document.documentElement;
+                if (!document.fullscreenElement) {
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen();
+                    } else if (elem.webkitRequestFullscreen) {
+                        elem.webkitRequestFullscreen();
+                    } else if (elem.msRequestFullscreen) {
+                        elem.msRequestFullscreen();
+                    }
+                    this.innerHTML = '<i class="fas fa-compress"></i>';
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                    this.innerHTML = '<i class="fas fa-expand"></i>';
+                }
+            });
+            
+            // Botón de actualizar manual
+            document.getElementById('btnRefresh').addEventListener('click', async function() {
+                const btn = this;
+                const originalHTML = btn.innerHTML;
+                
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                
+                await fetchAndUpdateLocation();
+                
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHTML;
+                }, 1000);
+            });
+            
+            // Botón de historial
+            document.getElementById('btnHistory').addEventListener('click', function() {
+                if (historyMode) {
+                    clearHistory();
+                    this.innerHTML = '<i class="fas fa-history"></i><span>Historial</span>';
+                } else {
+                    showHistory();
+                    this.innerHTML = '<i class="fas fa-trash"></i><span>Limpiar</span>';
+                }
+            });
+            
+            // Botón de volver
+            document.getElementById('btnBack').addEventListener('click', function() {
+                window.location.href = 'index.html';
+            });
+            
+            // Evento de pantalla completa
+            document.addEventListener('fullscreenchange', updateFullscreenButton);
+            document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+            document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+            document.addEventListener('MSFullscreenChange', updateFullscreenButton);
+            
+            function updateFullscreenButton() {
+                const btn = document.getElementById('btnFullscreen');
+                if (document.fullscreenElement) {
+                    btn.innerHTML = '<i class="fas fa-compress"></i>';
+                } else {
+                    btn.innerHTML = '<i class="fas fa-expand"></i>';
+                }
+            }
+            
+            // Manejar teclas de acceso rápido
+            document.addEventListener('keydown', function(e) {
+                switch(e.key) {
+                    case '+':
+                    case '=':
+                        map.zoomIn();
+                        break;
+                    case '-':
+                        map.zoomOut();
+                        break;
+                    case 'r':
+                    case 'R':
+                        if (e.ctrlKey) {
+                            e.preventDefault();
+                            document.getElementById('btnRefresh').click();
+                        }
+                        break;
+                    case 'Escape':
+                        if (document.fullscreenElement) {
+                            document.exitFullscreen();
+                        }
+                        break;
+                }
+            });
+        }
+        
+        // ==================== SERVICE WORKER ====================
+        
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(registration => {
+                    console.log('✅ Service Worker registrado:', registration);
+                }).catch(error => {
+                    console.log('❌ Error registrando Service Worker:', error);
+                });
+            });
+        }
+        
+        // ==================== INFORMACIÓN DEBUG ====================
+        
+        console.log('%c🦅 HawkEye Mapa v2.0', 'color: #3b82f6; font-size: 16px; font-weight: bold;');
+        console.log('Dispositivo:', deviceName);
+        console.log('ID:', deviceId);
+        console.log('API:', API_BASE);
+        console.log('URL del mapa:', window.location.href);
+        
+        // Exponer algunas funciones globalmente para debugging
+        window.hawkEye = {
+            refresh: fetchAndUpdateLocation,
+            showHistory: showHistory,
+            clearHistory: clearHistory,
+            getStats: () => ({
+                deviceId,
+                deviceName,
+                apiBase: API_BASE,
+                isConnected,
+                lastUpdateTime,
+                pathLength: pathCoordinates.length,
+                currentLocation: marker.getLatLng()
+            })
+        };
+    </script>
+</body>
+</html>
